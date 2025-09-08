@@ -19,24 +19,13 @@ jobs:
           - false
         os:
           # ignore ARM64 flavours
-          - ubuntu-20.04
           - ubuntu-22.04
           - ubuntu-24.04
-          - windows-2019
           - windows-2022
           - windows-2025
         version:
-          - 2017
           - 2019
           - 2022
-        exclude:
-          - force-encryption: true
-            os: ubuntu-24.04
-            version: 2017
-
-          - force-encryption: false
-            os: ubuntu-24.04
-            version: 2017
 
     runs-on: ${{ matrix.os }}
     steps:

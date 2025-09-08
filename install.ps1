@@ -3,7 +3,7 @@ param (
     [string[]]$Components,
     [bool]$ForceEncryption,
     [string]$SaPassword,
-    [ValidateSet("2017", "2019", "2022")]
+    [ValidateSet("2019", "2022")]
     [string]$Version
 )
 
@@ -45,36 +45,6 @@ if ($IsLinux) {
 
 if ("sqlengine" -in $Components) {
     if ($IsLinux) {
-        # the Ubuntu 24.04 image uses a kernel version which does not work with the current 2017 version.
-        # see https://github.com/microsoft/mssql-docker/issues/868
-
-        # but also manual installation is difficult since MSSQL has been released for Ubuntu 18.04 only
-        # you could backport all of this somehow, but 2017 is EOL soon anyhow
-        # $ apt install --fix-broken -y ./mssql-server_14.0.3465.1-1_amd64.deb 
-        # Reading package lists... Done
-        # Building dependency tree... Done
-        # Reading state information... Done
-        # Correcting dependencies... Done
-        # Note, selecting 'mssql-server' instead of './mssql-server_14.0.3465.1-1_amd64.deb'
-        # mssql-server is already the newest version (14.0.3465.1-1).
-        # Some packages could not be installed. This may mean that you have
-        # requested an impossible situation or if you are using the unstable
-        # distribution that some required packages have not yet been created
-        # or been moved out of Incoming.
-        # The following information may help to resolve the situation:
-
-        # The following packages have unmet dependencies:
-        #  mssql-server : Depends: libjemalloc1 but it is not installable
-        #                 Depends: libssl1.0.0 but it is not installable
-        #                 Depends: python (>= 2.7.0) but it is not installable
-        #                 Depends: libldap-2.4-2 but it is not installable
-        # E: Unable to correct problems, you have held broken packages.
-        if ($IsUbuntu2404 -And $Version -Eq "2017") {
-            Write-Error "MSSQL 2017 is not available on Ubuntu 24.04."
-            Write-Error "See more information at https://github.com/microsoft/mssql-docker/issues/868"
-            exit 1
-        }
-
         if ($ForceEncryption) {
             Write-Output "Force encryption is set, generating self-signed certificate ..."
     
@@ -102,17 +72,7 @@ forceencryption = 1
             $AdditionalContainerConfiguration = "-v /opt/mssql/mssql.conf:/var/opt/mssql/mssql.conf -v /opt/mssql/mssql.pem:/var/opt/mssql/mssql.pem -v /opt/mssql/mssql.key:/var/opt/mssql/mssql.key"
         }
 
-        if ($Version -ne "2017") {
-            $ToolsPath = "/opt/mssql-tools18"
-        }
-        else {
-            $ToolsPath = "/opt/mssql-tools"
-        }
-
-        switch($Version) {
-            "2017" {
-                $Tag = "CU31-GDR2-ubuntu-18.04"
-            }
+        switch ($Version) {
             "2019" {
                 $Tag = "CU30-ubuntu-20.04"
             }
@@ -122,7 +82,7 @@ forceencryption = 1
         }
 
         Write-Output "Starting a Docker Container"
-        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" --health-cmd=`"$ToolsPath/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 $AdditionalContainerConfiguration -d `"mcr.microsoft.com/mssql/server:$Version-$Tag`""
+        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" --health-cmd=`"/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 $AdditionalContainerConfiguration -d `"mcr.microsoft.com/mssql/server:$Version-$Tag`""
         Wait-ForContainer
     }
 
@@ -131,10 +91,6 @@ forceencryption = 1
         New-Item -ItemType Directory -Path "C:\Downloads"
 
         switch ($Version) {
-            "2017" {
-                $DownloadUrl = "https://download.microsoft.com/download/E/F/2/EF23C21D-7860-4F05-88CE-39AA114B014B/SQLEXPR_x64_ENU.exe"
-                $MajorVersion = 14
-            }
             "2019" {
                 $DownloadUrl = "https://download.microsoft.com/download/7/c/1/7c14e92e-bdcb-4f89-b7cf-93543e7112d1/SQLEXPR_x64_ENU.exe"
                 $MajorVersion = 15
