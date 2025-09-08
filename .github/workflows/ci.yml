@@ -19,7 +19,6 @@ jobs:
           - false
         os:
           # ignore ARM64 flavours
-          - ubuntu-20.04
           - ubuntu-22.04
           - ubuntu-24.04
           - windows-2022

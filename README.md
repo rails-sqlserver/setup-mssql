@@ -2,7 +2,7 @@
 
 This GitHub action automatically installs a SQL server and `sqlcmd` on Windows and Linux.
 
-On Windows, we install an Express edition of the container. On Linux, a Docker container is started. `sqlcmd` is actually preinstalled on all Windows images as well as Ubuntu 20.04 and 22.04. Essentially, it only has an effect on Ubuntu 24.04.
+On Windows, we install an Express edition of the container. On Linux, a Docker container is started. `sqlcmd` is actually preinstalled on all Windows images as well as Ubuntu 22.04. Essentially, it only has an effect on Ubuntu 24.04.
 
 ## Usage
 
