@@ -3,7 +3,7 @@ param (
     [string[]]$Components,
     [bool]$ForceEncryption,
     [string]$SaPassword,
-    [ValidateSet("2019", "2022")]
+    [ValidateSet("2019", "2022", "2025")]
     [string]$Version
 )
 
@@ -74,10 +74,13 @@ forceencryption = 1
 
         switch ($Version) {
             "2019" {
-                $Tag = "CU30-ubuntu-20.04"
+                $Tag = "CU32-GDR3-ubuntu-20.04"
             }
             "2022" {
-                $Tag = "CU17-ubuntu-22.04"
+                $Tag = "CU21-ubuntu-22.04"
+            }
+            "2025" {
+                $Tag = "RC1-ubuntu-24.04"
             }
         }
 
@@ -99,17 +102,27 @@ forceencryption = 1
                 $DownloadUrl = "https://download.microsoft.com/download/3/8/d/38de7036-2433-4207-8eae-06e247e17b25/SQLEXPR_x64_ENU.exe"
                 $MajorVersion = 16
             }
+            "2025" {
+                $DownloadUrl = "https://download.microsoft.com/download/7ab8f535-7eb8-4b16-82eb-eca0fa2d38f3/SQL2025-SSEI-Expr.exe"
+                $MajorVersion = 17
+            }
         }
 
         Invoke-WebRequest $DownloadUrl -OutFile "C:\Downloads\mssql.exe"
-        Start-Process -Wait -FilePath "C:\Downloads\mssql.exe" -ArgumentList /qs, /x:"C:\Downloads\setup"
-        C:\Downloads\setup\setup.exe /q /ACTION=Install /INSTANCENAME=SQLEXPRESS /FEATURES=SQLEngine /UPDATEENABLED=0 /SQLSVCACCOUNT='NT AUTHORITY\System' /SQLSYSADMINACCOUNTS='BUILTIN\ADMINISTRATORS' /TCPENABLED=1 /NPENABLED=0 /IACCEPTSQLSERVERLICENSETERMS
+
+        if ($MajorVersion -eq 17) {
+            Start-Process -Wait -FilePath "C:\Downloads\mssql.exe" -ArgumentList /IACCEPTSQLSERVERLICENSETERMS,/ENU,/ACTION=Install,/quiet
+        } else {
+            Start-Process -Wait -FilePath "C:\Downloads\mssql.exe" -ArgumentList /qs, /x:"C:\Downloads\setup"
+            C:\Downloads\setup\setup.exe /q /ACTION=Install /INSTANCENAME=SQLEXPRESS /FEATURES=SQLEngine /UPDATEENABLED=0 /SQLSVCACCOUNT='NT AUTHORITY\System' /SQLSYSADMINACCOUNTS='BUILTIN\ADMINISTRATORS' /NPENABLED=0 /IACCEPTSQLSERVERLICENSETERMS
+        }
 
         Write-Host "Configuring SQL Express ..."
         stop-service MSSQL`$SQLEXPRESS
 
         $InstancePath = "HKLM:\software\microsoft\microsoft sql server\mssql$MajorVersion.SQLEXPRESS\mssqlserver"
         $SuperSocketNetLibPath = "$InstancePath\supersocketnetlib"
+        set-itemproperty -path "$SuperSocketNetLibPath\tcp" -name Enabled -value 1
         set-itemproperty -path "$SuperSocketNetLibPath\tcp\ipall" -name tcpdynamicports -value ''
         set-itemproperty -path "$SuperSocketNetLibPath\tcp\ipall" -name tcpport -value 1433
         set-itemproperty -path $InstancePath -name LoginMode -value 2
@@ -126,6 +139,13 @@ forceencryption = 1
 
             Set-ItemProperty $SuperSocketNetLibPath -Name "Certificate" -Value $Certificate.Thumbprint.ToLowerInvariant()
             Set-ItemProperty $SuperSocketNetLibPath -Name "ForceEncryption" -Value 1
+        }
+
+        # SQL Server 2025 no longer offers an option during installation to change the service account
+        # when forcing encryption, the default service account is not allowed to read the certificate out of the certificate store
+        # changing the service account to LocalSystem aligns it with the other two installation options
+        if ($MajorVersion -eq 17) {
+            sc.exe config "MSSQL`$SQLEXPRESS" obj="LocalSystem"
         }
 
         Write-Host "Starting SQL Express ..."

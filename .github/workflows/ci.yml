@@ -26,6 +26,7 @@ jobs:
         version:
           - 2019
           - 2022
+          - 2025
 
     runs-on: ${{ matrix.os }}
     steps:
